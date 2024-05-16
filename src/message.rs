@@ -13,6 +13,10 @@ use crate::{
     address::{AddressHeader, AddressMessage, AddressMessageBuffer},
     link::{LinkMessage, LinkMessageBuffer},
     neighbour::{NeighbourMessage, NeighbourMessageBuffer},
+    neighbour_discovery_user_option::{
+        NeighbourDiscoveryUserOptionMessage,
+        NeighbourDiscoveryUserOptionMessageBuffer,
+    },
     neighbour_table::{NeighbourTableMessage, NeighbourTableMessageBuffer},
     nsid::{NsidMessage, NsidMessageBuffer},
     prefix::{PrefixMessage, PrefixMessageBuffer},
@@ -55,7 +59,7 @@ const RTM_NEWPREFIX: u16 = 52;
 const RTM_NEWNEIGHTBL: u16 = 64;
 const RTM_GETNEIGHTBL: u16 = 66;
 const RTM_SETNEIGHTBL: u16 = 67;
-// const RTM_NEWNDUSEROPT: u16 = 68;
+const RTM_NEWNDUSEROPT: u16 = 68;
 // const RTM_NEWADDRLABEL: u16 = 72;
 // const RTM_DELADDRLABEL: u16 = 73;
 // const RTM_GETADDRLABEL: u16 = 74;
@@ -185,6 +189,18 @@ impl<'a, T: AsRef<[u8]> + ?Sized>
                     }
                     _ => unreachable!(),
                 }
+            }
+
+            RTM_NEWNDUSEROPT => {
+                let err = "invalid nduseropt message";
+                let msg = NeighbourDiscoveryUserOptionMessage::parse(
+                    &NeighbourDiscoveryUserOptionMessageBuffer::new_checked(
+                        &buf.inner(),
+                    )
+                    .context(err)?,
+                )
+                .context(err)?;
+                RouteNetlinkMessage::NewNeighbourDiscoveryUserOption(msg)
             }
 
             // Route messages
@@ -335,6 +351,7 @@ pub enum RouteNetlinkMessage {
     NewNeighbourTable(NeighbourTableMessage),
     GetNeighbourTable(NeighbourTableMessage),
     SetNeighbourTable(NeighbourTableMessage),
+    NewNeighbourDiscoveryUserOption(NeighbourDiscoveryUserOptionMessage),
     NewRoute(RouteMessage),
     DelRoute(RouteMessage),
     GetRoute(RouteMessage),
@@ -515,6 +532,7 @@ impl RouteNetlinkMessage {
             GetNeighbourTable(_) => RTM_GETNEIGHTBL,
             NewNeighbourTable(_) => RTM_NEWNEIGHTBL,
             SetNeighbourTable(_) => RTM_SETNEIGHTBL,
+            NewNeighbourDiscoveryUserOption(_) => RTM_NEWNDUSEROPT,
             NewRoute(_) => RTM_NEWROUTE,
             DelRoute(_) => RTM_DELROUTE,
             GetRoute(_) => RTM_GETROUTE,
@@ -568,6 +586,8 @@ impl Emitable for RouteNetlinkMessage {
             | GetNeighbourTable(ref msg)
             | SetNeighbourTable(ref msg)
             => msg.buffer_len(),
+
+            | NewNeighbourDiscoveryUserOption(ref msg) => msg.buffer_len(),
 
             | NewRoute(ref msg)
             | DelRoute(ref msg)
@@ -628,6 +648,8 @@ impl Emitable for RouteNetlinkMessage {
             | NewNeighbourTable(ref msg)
             | SetNeighbourTable(ref msg)
             => msg.emit(buffer),
+
+            | NewNeighbourDiscoveryUserOption(ref msg) => msg.emit(buffer),
 
             | NewRoute(ref msg)
             | DelRoute(ref msg)
